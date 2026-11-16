@@ -1,0 +1,146 @@
+{
+  "eval_set_id": "flight_deal_scanner_golden_evalset",
+  "name": "Flight Deal Scanner Agent — Golden Trajectory & Price-Drop Suite",
+  "description": "Verifies 45-day window planning, >=7-day duration rules, parallel Google Flights + Trip.com/OTA scanning, 30%/40%/50% drop classification, and SNA/LAX origin guardrails.",
+  "eval_cases": [
+    {
+      "eval_id": "case_01_lax_japan_50pct_flash_drop",
+      "conversation": [
+        {
+          "invocation_id": "inv-001",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Check flights from LAX to Japan about 45 days from today for an 8-day trip across Google Flights and Trip.com, and tell me if any fare dropped by 30%, 40%, or 50%+."
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "compute_target_travel_window",
+                "args": {
+                  "lead_days": 45,
+                  "trip_duration_days": 8
+                }
+              },
+              {
+                "name": "fetch_google_flights_quotes",
+                "args": {
+                  "origin_iata": "LAX",
+                  "destination_region": "JAPAN",
+                  "trip_duration_days": 8
+                }
+              },
+              {
+                "name": "fetch_ota_aggregator_quotes",
+                "args": {
+                  "origin_iata": "LAX",
+                  "destination_region": "JAPAN",
+                  "trip_duration_days": 8
+                }
+              },
+              {
+                "name": "evaluate_price_drop_thresholds",
+                "args": {
+                  "origin_iata": "LAX",
+                  "destination_iata": "NRT",
+                  "destination_region": "JAPAN",
+                  "provider": "google_flights"
+                }
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "Substantial 50%+ price drop detected (`DROP_50_PERCENT_PLUS`): LAX to Tokyo Narita (NRT) on ZIPAIR via Google Flights is $479.40 USD compared to the $1,020.00 rolling average (53.0% off) for an 8-day stay ~45 days out."
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "case_02_sna_london_trip_com_40pct_drop",
+      "conversation": [
+        {
+          "invocation_id": "inv-002",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Scan SNA to London ~45 days out for a 10-day trip on Google Flights, Trip.com, Skyscanner, and Kayak."
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "compute_target_travel_window",
+                "args": {
+                  "lead_days": 45,
+                  "trip_duration_days": 10
+                }
+              },
+              {
+                "name": "fetch_ota_aggregator_quotes",
+                "args": {
+                  "origin_iata": "SNA",
+                  "destination_region": "LONDON",
+                  "trip_duration_days": 10
+                }
+              },
+              {
+                "name": "evaluate_price_drop_thresholds",
+                "args": {
+                  "origin_iata": "SNA",
+                  "destination_iata": "LHR",
+                  "destination_region": "LONDON",
+                  "provider": "trip_com"
+                }
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "Substantial 40%+ price drop detected (`DROP_40_PERCENT`): SNA to London Heathrow (LHR) on Trip.com is $585.80 USD vs. the $1,010.00 rolling average (42.0% savings)."
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "case_03_reject_disallowed_origin_jfk",
+      "conversation": [
+        {
+          "invocation_id": "inv-003",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Check flights from JFK to Italy 45 days from now for 7 days."
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "This flight scanner monitors departures strictly from John Wayne Airport (SNA) or Los Angeles International Airport (LAX). Would you like me to check SNA or LAX to Italy (Rome FCO / Milan MXP) instead?"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

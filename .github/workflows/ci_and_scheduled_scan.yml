@@ -1,0 +1,74 @@
+name: AgentOps CI/CD & Every-2-Hours Flight Deal Scan
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  schedule:
+    # Runs automatically every 2 hours, every day (UTC)
+    - cron: "0 */2 * * *"
+  workflow_dispatch:
+
+jobs:
+  unit-tests-and-lint:
+    name: Stage 1 — Pre-Merge Unit & Guardrail Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run unit & guardrail test suite
+        run: pytest -v
+
+  golden-adk-evaluation:
+    name: Stage 2 — Automated ADK Trajectory Evaluation Gate
+    needs: unit-tests-and-lint
+    if: github.event_name != 'schedule' && env.GEMINI_API_KEY != ''
+    runs-on: ubuntu-latest
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Execute ADK Golden Evaluation Suite
+        run: python evals/run_adk_eval.py
+
+  scheduled-two-hour-scan:
+    name: Scheduled Every-2-Hours SNA & LAX Airfare Price-Drop Scan
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
+      TRIP_COM_PARTNER_KEY: ${{ secrets.TRIP_COM_PARTNER_KEY }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Execute 2-Hour Multi-Provider Matrix Scan
+        run: |
+          python -c "import json; from deployment.server import execute_full_scheduled_matrix_scan; print(json.dumps(execute_full_scheduled_matrix_scan(), indent=2))"
